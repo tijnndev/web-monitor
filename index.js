@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, REST, Routes } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder } = require('discord.js');
 const express = require('express');
 const axios = require('axios');
 const cron = require('node-cron');
@@ -112,6 +112,11 @@ client.on('interactionCreate', async (interaction) => {
   if (commandName === 'status') {
     await interaction.deferReply();
     const statusMessage = await checkWebsites();
+    const embed = new EmbedBuilder()
+    .setTitle('Website Status Check')
+    .setColor(0x00FF00)
+    .setDescription('Here is the current status of the monitored websites:')
+    .setTimestamp();
     await interaction.followUp(statusMessage);
   }
 });
