@@ -1,18 +1,22 @@
-const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder } = require('discord.js');
 const express = require('express');
-const axios = require('axios');
-const cron = require('node-cron');
+const http = require('http');
 const WebSocket = require('ws');
+const cors = require('cors');
 const config = require('./config');
+const { checkWebsites } = require('./websiteMonitor');
+const { readFcmTokens, writeFcmTokens } = require('./tokenManager');
+const { sendAlertToDiscord } = require('./discord');
+const { sendPushNotification } = require('./firebase');
+const cron = require('node-cron');
+
 const app = express();
+const port = 8007;
 
-const websites = config.websites;
-const channelID = config.discord.channelID;
-const token = config.discord.token;
-const clientId = config.discord.clientId;  // Your bot's client ID
-const guildId = config.discord.guildId;  // Optional: Specify a guild ID for testing commands
+app.use(cors());
+app.use(express.json());
 
-const wss = new WebSocket.Server({ port: 8082 });
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
 const broadcastToClients = (message) => {
   wss.clients.forEach(client => {
@@ -22,103 +26,76 @@ const broadcastToClients = (message) => {
   });
 };
 
-const checkWebsites = async () => {
-  let statusMessage = 'Website Status Check:\n';
+const sendAlertToClientsAndPushNotifications = (websiteName) => {
+  const alertMessage = `ALERT: ${websiteName} is offline!`;
 
-  for (let website of websites) {
-    try {
-      const response = await axios.get(website, { timeout: 5000 });
-      if (response.status === 200) {
-        statusMessage += `${website}: ONLINE\n`;
-      } else {
-        statusMessage += `${website}: OFFLINE\n`;
-        sendAlertToDiscord(website);  // If the website is offline, send an alert.
-      }
-    } catch (error) {
-      statusMessage += `${website}: OFFLINE\n`;
-      sendAlertToDiscord(website);  // If the request fails, send an alert.
-    }
-  }
+  // Send to Discord
+  sendAlertToDiscord(websiteName);
 
-  return statusMessage;
-};
-
-const sendAlertToDiscord = (website) => {
-  const alertMessage = `ALERT: ${website} is offline!`;
-
-  const channel = client.channels.cache.get(channelID);
-  if (channel) {
-    channel.send(alertMessage);
-  }
-
+  // Broadcast to WebSocket clients
   broadcastToClients(alertMessage);
+
+  // Send push notifications to all registered tokens
+  const fcmTokens = readFcmTokens(); // Get the latest tokens from the file
+  fcmTokens.forEach(token => {
+    sendPushNotification(token, websiteName); // Send notification to each token
+  });
 };
 
 cron.schedule('0 0 * * *', () => {
   console.log('Checking websites...');
-  checkWebsites();
+  checkWebsites(sendAlertToClientsAndPushNotifications);
 });
 
 app.get('/status', (req, res) => {
   res.json({
     status: 'Monitoring active',
-    websites: websites,
+    websites: config.websites.map(site => ({ name: site.name, url: site.url }))
   });
 });
 
-app.listen(3000, () => {
-  console.log('Website monitoring API is running on http://localhost:3000');
+app.get('/services', (req, res) => {
+  res.json(config.websites);
 });
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds, 
-    GatewayIntentBits.GuildMessages, 
-    GatewayIntentBits.MessageContent
-  ]
+app.get('/send-notification', (req, res) => {
+  const { title, body } = req.body;
+
+  if (!title || !body) {
+    return res.status(400).json({ error: 'Title and body are required' });
+  }
+
+  const fcmTokens = readFcmTokens();
+  if (fcmTokens.length === 0) {
+    return res.status(400).json({ error: 'No registered tokens found' });
+  }
+
+  fcmTokens.forEach(token => {
+    sendPushNotification(token, title, body);
+    // sendPushNotification(token, "test", "test");
+  });
+
+  res.status(200).json({ message: 'Push notification sent successfully' });
 });
 
-const rest = new REST({ version: '10' }).setToken(token);
 
-client.once('ready', async () => {
-  console.log(`Logged in as ${client.user.tag}`);
+app.post('/register-token', (req, res) => {
+  const { token } = req.body;
 
-  try {
-    console.log('Started refreshing application (/) commands.');
-
-    await rest.put(
-      Routes.applicationGuildCommands(clientId, guildId),  // Register the command in a specific guild for testing
-      {
-        body: [
-          {
-            name: 'status',
-            description: 'Check the status of the website monitoring system',
-          },
-        ],
-      }
-    );
-
-    console.log('Successfully reloaded application (/) commands.');
-  } catch (error) {
-    console.error(error);
+  if (token) {
+    const fcmTokens = readFcmTokens();
+    if (!fcmTokens.includes(token)) {
+      fcmTokens.push(token);
+      writeFcmTokens(fcmTokens);
+      res.status(200).send('Token registered successfully');
+    } else {
+      res.status(400).send('Token already registered');
+    }
+  } else {
+    res.status(400).send('No token provided');
   }
 });
 
-client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isCommand()) return;
-
-  const { commandName } = interaction;
-
-  if (commandName === 'status') {
-    await interaction.deferReply();
-    const statusMessage = await checkWebsites();
-    const embed = new EmbedBuilder()
-    .setTitle('Website Status Check')
-    .setColor(0x00FF00)
-    .setDescription('Here is the current status of the monitored websites:')
-    .setTimestamp();
-    await interaction.followUp(statusMessage);
-  }
+server.listen(port, () => {
+  console.log(`Website monitoring API and WebSocket server are running on http://localhost:${port}`);
 });
-
-client.login(token);

@@ -1,13 +1,12 @@
 module.exports = {
-    discord: {
-      token: 'YOUR_BOT_TOKEN',
-      channelID: 'YOUR_CHANNEL_ID',
-      clientId: "YOUR_CLIENT_ID",
-      guildId: "YOUR_GUILD_ID"
-    },
-    websites: [
-      'https://example.com',
-      'https://example2.com',
-    ]
-  };
-  
+  discord: {
+    token: 'YOUR_BOT_TOKEN',
+    channelID: 'YOUR_CHANNEL_ID',
+    clientId: 'YOUR_CLIENT_ID',
+    guildId: 'YOUR_GUILD_ID'
+  },
+  websites: [
+    { name: 'Example Website', url: 'https://example.com' },
+    { name: 'Example2 Website', url: 'https://example2.com' }
+  ]
+};
