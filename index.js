@@ -29,16 +29,13 @@ const broadcastToClients = (message) => {
 const sendAlertToClientsAndPushNotifications = (websiteName) => {
   const alertMessage = `ALERT: ${websiteName} is offline!`;
 
-  // Send to Discord
   sendAlertToDiscord(websiteName);
 
-  // Broadcast to WebSocket clients
   broadcastToClients(alertMessage);
 
-  // Send push notifications to all registered tokens
-  const fcmTokens = readFcmTokens(); // Get the latest tokens from the file
+  const fcmTokens = readFcmTokens();
   fcmTokens.forEach(token => {
-    sendPushNotification(token, websiteName); // Send notification to each token
+    sendPushNotification(token, websiteName);
   });
 };
 

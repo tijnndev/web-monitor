@@ -1,17 +1,17 @@
 const fs = require('fs');
-const fcmTokensFile = './fcmTokens.json';  // File to store FCM tokens
+const fcmTokensFile = './fcmTokens.json';
 
 const readFcmTokens = () => {
   try {
     const data = fs.readFileSync(fcmTokensFile, 'utf8');
-    return JSON.parse(data);  // Parse and return the tokens as an array
+    return JSON.parse(data);
   } catch (err) {
-    return [];  // If the file doesn't exist, return an empty array
+    return [];
   }
 };
 
 const writeFcmTokens = (tokens) => {
-  fs.writeFileSync(fcmTokensFile, JSON.stringify(tokens, null, 2));  // Write tokens back to file
+  fs.writeFileSync(fcmTokensFile, JSON.stringify(tokens, null, 2));
 };
 
 module.exports = { readFcmTokens, writeFcmTokens };
