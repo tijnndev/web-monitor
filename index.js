@@ -39,7 +39,7 @@ const sendAlertToClientsAndPushNotifications = (websiteName) => {
   });
 };
 
-cron.schedule('0 0 * * *', () => {
+cron.schedule('0 * * * *', () => {
   console.log('Checking websites...');
   checkWebsites(sendAlertToClientsAndPushNotifications);
 });
@@ -74,7 +74,6 @@ app.get('/send-notification', (req, res) => {
 
   res.status(200).json({ message: 'Push notification sent successfully' });
 });
-
 
 app.post('/register-token', (req, res) => {
   const { token } = req.body;
