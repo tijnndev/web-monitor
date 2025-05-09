@@ -4,10 +4,11 @@ const WebSocket = require('ws');
 const cors = require('cors');
 const config = require('./config');
 const { checkWebsites } = require('./websiteMonitor');
-const { readFcmTokens, writeFcmTokens } = require('./tokenManager');
 const { sendAlertToDiscord } = require('./discord');
-const { sendPushNotification } = require('./firebase');
 const cron = require('node-cron');
+const dotenv = require('dotenv');
+const axios = require('axios');
+dotenv.config();
 
 const app = express();
 const port = 8007;
@@ -26,17 +27,41 @@ const broadcastToClients = (message) => {
   });
 };
 
-const sendAlertToClientsAndPushNotifications = (websiteName) => {
+const sendBroadcast = async (title, body) => {
+  const broadcastURL = process.env.BROADCAST_URL;
+  const secret = process.env.BROADCAST_SECRET;
+  const serviceId = parseFloat(process.env.SERVICE_ID);
+
+  if (!broadcastURL) {
+    console.error('Broadcast URL is not configured');
+    return;
+  }
+
+  const payload = {
+    title,
+    body,
+    serviceId,
+    secret
+  };
+
+  try {
+    const response = await axios.post(`${broadcastURL}/services/broadcast`, payload);
+    console.log(`Broadcast sent: ${response.statusText}`);
+  } catch (error) {
+    console.error('Failed to send broadcast:', error.message);
+  }
+};
+
+const sendAlertToClientsAndPushNotifications = async (websiteName) => {
   const alertMessage = `ALERT: ${websiteName} is offline!`;
 
   sendAlertToDiscord(websiteName);
 
   broadcastToClients(alertMessage);
 
-  const fcmTokens = readFcmTokens();
-  fcmTokens.forEach(token => {
-    sendPushNotification(token, websiteName);
-  });
+  let title = `Website Down: ${websiteName}`
+  let body = `${websiteName} is currently offline.`
+  await sendBroadcast(title, body);
 };
 
 cron.schedule('0 * * * *', () => {
@@ -62,34 +87,9 @@ app.get('/send-notification', (req, res) => {
     return res.status(400).json({ error: 'Title and body are required' });
   }
 
-  const fcmTokens = readFcmTokens();
-  if (fcmTokens.length === 0) {
-    return res.status(400).json({ error: 'No registered tokens found' });
-  }
-
-  fcmTokens.forEach(token => {
-    sendPushNotification(token, title, body);
-    // sendPushNotification(token, "test", "test");
-  });
+  sendBroadcast(title, body);
 
   res.status(200).json({ message: 'Push notification sent successfully' });
-});
-
-app.post('/register-token', (req, res) => {
-  const { token } = req.body;
-
-  if (token) {
-    const fcmTokens = readFcmTokens();
-    if (!fcmTokens.includes(token)) {
-      fcmTokens.push(token);
-      writeFcmTokens(fcmTokens);
-      res.status(200).send('Token registered successfully');
-    } else {
-      res.status(400).send('Token already registered');
-    }
-  } else {
-    res.status(400).send('No token provided');
-  }
 });
 
 server.listen(port, () => {
