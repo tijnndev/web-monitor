@@ -64,23 +64,34 @@ const sendAlertToClientsAndPushNotifications = async (websiteName) => {
   await sendBroadcast(title, body);
 };
 
+const verifySecret = (req, res, next) => {
+  const provided = req.headers['x-api-key'];
+  const expected = process.env.BROADCAST_SECRET;
+
+  if (!provided || provided !== expected) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  next();
+};
+
 cron.schedule('0 * * * *', () => {
   console.log('Checking websites...');
   checkWebsites(sendAlertToClientsAndPushNotifications);
 });
 
-app.get('/status', (req, res) => {
+app.get('/status', verifySecret, (req, res) => {
   res.json({
     status: 'Monitoring active',
     websites: config.websites.map(site => ({ name: site.name, url: site.url }))
   });
 });
 
-app.get('/services', (req, res) => {
+app.get('/services', verifySecret, (req, res) => {
   res.json(config.websites);
 });
 
-app.get('/send-notification', (req, res) => {
+app.post('/send-notification', verifySecret, (req, res) => {
   const { title, body } = req.body;
 
   if (!title || !body) {
