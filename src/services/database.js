@@ -92,12 +92,26 @@ class DatabaseService {
       VALUES (?, ?, ?, ?, ?, ?)
     `);
     
-    stmt.run(websiteName, websiteUrl, isOnline, statusCode, responseTime, errorMessage);
+    // Convert boolean to integer for SQLite (1 or 0)
+    const isOnlineInt = isOnline ? 1 : 0;
+    
+    // Ensure all values are valid SQLite types (numbers, strings, bigints, buffers, or null)
+    stmt.run(
+      websiteName, 
+      websiteUrl, 
+      isOnlineInt, 
+      statusCode, 
+      responseTime, 
+      errorMessage
+    );
   }
 
   // Update website status
   updateWebsiteStatus(websiteName, websiteUrl, isOnline) {
     const now = new Date().toISOString();
+    
+    // Convert boolean to integer for SQLite (1 or 0)
+    const isOnlineInt = isOnline ? 1 : 0;
     
     const existing = this.db.prepare('SELECT * FROM website_status WHERE website_url = ?').get(websiteUrl);
     
@@ -113,7 +127,7 @@ class DatabaseService {
             consecutive_failures = ?,
             total_checks = total_checks + 1
         WHERE website_url = ?
-      `).run(isOnline, now, isOnline, now, isOnline, now, consecutiveFailures, websiteUrl);
+      `).run(isOnlineInt, now, isOnlineInt, now, isOnlineInt, now, consecutiveFailures, websiteUrl);
       
       // Check if we need to create or resolve an incident
       if (!isOnline && existing.is_online) {
@@ -125,7 +139,7 @@ class DatabaseService {
       this.db.prepare(`
         INSERT INTO website_status (website_name, website_url, is_online, last_checked, last_online, last_offline, consecutive_failures, total_checks)
         VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-      `).run(websiteName, websiteUrl, isOnline, now, isOnline ? now : null, isOnline ? null : now, isOnline ? 0 : 1);
+      `).run(websiteName, websiteUrl, isOnlineInt, now, isOnline ? now : null, isOnline ? null : now, isOnline ? 0 : 1);
       
       if (!isOnline) {
         this.createIncident(websiteName, websiteUrl);
