@@ -1,52 +1,266 @@
-# Web Monitor
+# Web Monitor 🔍
 
-This project is a web monitoring system that uses `discord.js` to monitor the uptime status of websites and send alerts to a specified Discord channel if a website goes offline. It also provides a real-time alert system via WebSocket and an API endpoint to view the current status of the monitoring system.
+A professional website uptime monitoring system with Discord alerts, WebSocket notifications, Firebase push notifications, and comprehensive metrics tracking. Built with Node.js, Express, and SQLite.
 
-**Note: this app works the best with my [web-monitor app](https://github.com/tijnndev/web-monitor-app) to recieve notifications and view the services.**
-
-## Features
-- Monitor the uptime status of a list of websites.
-- Sends real-time alerts to a Discord channel if a website goes offline.
-- Provides an API endpoint to view the current status of the monitoring system.
-- WebSocket server to broadcast real-time alerts to connected clients.
-- Slash command `/status` in Discord to retrieve the latest website status.
+**Works seamlessly with [web-monitor-app](https://github.com/tijnndev/web-monitor-app)** - a mobile/web companion app to receive notifications and view service status.
 
 ---
 
-## Installation
+## ✨ Features
 
-1. Clone the repository:
+### Monitoring
+- ✅ **Automated Website Checks** - Configurable cron-based scheduling
+- 🔄 **Retry Logic** - Exponential backoff for transient failures
+- 📊 **Response Time Tracking** - Monitor performance metrics
+- 🎯 **Smart Alerting** - Only alerts on state changes (no spam)
+- 💾 **Historical Data** - SQLite database for incident tracking
+
+### Notifications
+- 💬 **Discord Integration** - Rich embeds with slash commands (`/status`, `/uptime`, `/history`, `/incidents`)
+- 🔔 **Push Notifications** - Firebase Cloud Messaging support
+- 🌐 **WebSocket** - Real-time updates for connected clients
+
+### API & Metrics
+- 🔐 **Secure REST API** - API key authentication with rate limiting
+- 📈 **Detailed Metrics** - Uptime percentages, response times, incident tracking
+- 🏥 **Health Endpoints** - Monitor the monitor itself
+- 📜 **Complete History** - Query past checks and incidents
+
+---
+
+## 🏗️ Architecture
+
+```
+web-monitor/
+├── src/
+│   ├── config/         # Configuration with validation
+│   ├── middleware/     # Auth, rate limiting, error handling
+│   ├── routes/         # API endpoints
+│   ├── services/       # Business logic (monitoring, Discord, DB, etc.)
+│   └── utils/          # Logger and helpers
+├── tests/              # Jest test suites
+├── logs/               # Application logs
+└── data/               # SQLite database
+```
+
+---
+
+## 📦 Installation
+
+### Prerequisites
+- Node.js >= 18.0.0
+- npm >= 8.0.0
+
+### Setup
+
+1. **Clone the repository**
    ```bash
    git clone https://github.com/tijnndev/web-monitor
+   cd web-monitor
    ```
 
-2. Install dependencies:
+2. **Install dependencies**
    ```bash
    npm install
    ```
 
-3. Configure the bot:
-   - Create a file named `config.js` in the root directory.
-   - Add the following configuration:
-     ```js
-      module.exports = {
-        discord: {
-          token: 'YOUR_BOT_TOKEN',
-          channelID: 'YOUR_CHANNEL_ID',
-          clientId: 'YOUR_CLIENT_ID',
-          guildId: 'YOUR_GUILD_ID'
-        },
-        websites: [
-          { name: 'Example Website', url: 'https://example.com' },
-          { name: 'Example2 Website', url: 'https://example2.com' }
-        ]
-      };
-     ```
-
-4. Start the bot:
+3. **Configure environment variables**
    ```bash
-   node index.js
+   cp .env.example .env
    ```
+   
+   Edit `.env` with your settings:
+   ```env
+   PORT=8007
+   NODE_ENV=production
+   BROADCAST_URL=http://your-firebase-api-url
+   BROADCAST_SECRET=your-secret-key
+   SERVICE_ID=1
+   CHECK_INTERVAL="0 * * * *"  # Every hour
+   ```
+
+4. **Configure websites to monitor**
+   
+   Create `config.js` in the root directory:
+   ```javascript
+   module.exports = {
+     discord: {
+       token: 'YOUR_BOT_TOKEN',
+       channelID: 'YOUR_CHANNEL_ID',
+       clientId: 'YOUR_CLIENT_ID',
+       guildId: 'YOUR_GUILD_ID'
+     },
+     websites: [
+       { name: 'Production Site', url: 'https://example.com' },
+       { name: 'API Server', url: 'https://api.example.com' }
+     ]
+   };
+   ```
+
+5. **Start the server**
+   ```bash
+   npm start          # Production
+   npm run dev        # Development (with nodemon)
+   ```
+
+---
+
+## 🚀 Usage
+
+### API Endpoints
+
+All endpoints require `x-api-key` header with your `BROADCAST_SECRET`.
+
+#### Health Check (Public)
+```bash
+GET /api/health
+```
+
+#### Get All Services
+```bash
+GET /api/services
+Headers: x-api-key: your-secret-key
+```
+
+#### Get Metrics
+```bash
+GET /api/metrics
+Headers: x-api-key: your-secret-key
+```
+
+#### Get Uptime Stats
+```bash
+GET /api/uptime/:websiteUrl?hours=24
+Headers: x-api-key: your-secret-key
+```
+
+#### Get Check History
+```bash
+GET /api/history/:websiteUrl?limit=100
+Headers: x-api-key: your-secret-key
+```
+
+#### Send Custom Notification
+```bash
+POST /api/send-notification
+Headers: x-api-key: your-secret-key
+Body: { "title": "Alert", "body": "Message" }
+```
+
+### Discord Commands
+
+- `/status` - View current status of all websites
+- `/uptime <website> [hours]` - Get uptime statistics
+- `/history <website> [limit]` - View recent check history
+- `/incidents` - Show active incidents
+
+### WebSocket Connection
+
+Connect to `ws://localhost:8007` to receive real-time updates:
+
+```javascript
+const ws = new WebSocket('ws://localhost:8007');
+
+ws.on('message', (data) => {
+  const message = JSON.parse(data);
+  console.log(message);
+  // { type: 'alert', alertType: 'offline', websiteName: 'Example', ... }
+});
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+npm test              # Run tests
+npm run test:watch    # Watch mode
+npm run lint          # Run ESLint
+npm run lint:fix      # Fix linting issues
+npm run format        # Format code with Prettier
+```
+
+---
+
+## 📊 Database Schema
+
+### Tables
+
+**monitoring_checks** - Individual check records
+- website_name, website_url, is_online, status_code, response_time, error_message, checked_at
+
+**website_status** - Current state of each website
+- website_url (PK), website_name, is_online, last_checked, last_online, last_offline, consecutive_failures, total_checks
+
+**incidents** - Downtime incidents
+- id (PK), website_name, website_url, started_at, resolved_at, duration_minutes, is_resolved
+
+---
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Server port | 8007 |
+| `NODE_ENV` | Environment (development/production) | development |
+| `BROADCAST_URL` | Firebase API endpoint | Required |
+| `BROADCAST_SECRET` | API authentication key | Required |
+| `SERVICE_ID` | Service identifier | Required |
+| `CHECK_INTERVAL` | Cron schedule for checks | `0 * * * *` (hourly) |
+| `RETRY_ATTEMPTS` | Number of retries per check | 3 |
+| `REQUEST_TIMEOUT` | HTTP timeout (ms) | 10000 |
+| `DB_PATH` | SQLite database path | ./data/monitoring.db |
+
+### Cron Schedule Examples
+
+```
+*/5 * * * *    # Every 5 minutes
+0 * * * *      # Every hour
+0 */2 * * *    # Every 2 hours
+0 0 * * *      # Daily at midnight
+0 9-17 * * *   # Every hour from 9 AM to 5 PM
+```
+
+---
+
+## 🔒 Security Features
+
+- ✅ Helmet.js for secure HTTP headers
+- ✅ Rate limiting (100 requests per 15 minutes)
+- ✅ API key authentication
+- ✅ Input validation with Joi
+- ✅ Environment variable validation
+- ✅ Structured logging with Winston
+
+---
+
+## 📝 License
+
+ISC
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📞 Support
+
+For issues or questions, please open an issue on GitHub.
+
+---
+
+**Made with ❤️ by tijnndev**
 
 ---
 
