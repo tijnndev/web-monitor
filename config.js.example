@@ -1,12 +1,46 @@
+/**
+ * Web Monitor Configuration
+ * 
+ * This file configures Discord integration and websites to monitor.
+ * 
+ * Setup Instructions:
+ * 1. Copy this file to config.js: cp config.js.example config.js
+ * 2. Update Discord credentials (or leave empty if using .env)
+ * 3. Add your websites to the websites array
+ * 4. Restart the server
+ * 
+ * Note: Discord config here takes precedence over .env variables
+ */
+
 module.exports = {
+  // Discord Integration (Optional)
+  // Leave empty or remove this section if you're configuring Discord via .env
   discord: {
-    token: 'YOUR_BOT_TOKEN',
-    channelID: 'YOUR_CHANNEL_ID',
-    clientId: 'YOUR_CLIENT_ID',
-    guildId: 'YOUR_GUILD_ID'
+    token: 'YOUR_BOT_TOKEN',           // Discord bot token from Developer Portal
+    channelID: 'YOUR_CHANNEL_ID',       // Channel ID where alerts will be sent
+    clientId: 'YOUR_CLIENT_ID',         // Discord Application (Client) ID
+    guildId: 'YOUR_GUILD_ID'            // Discord Server (Guild) ID
   },
+
+  // Websites to Monitor
+  // Add all websites you want to monitor for uptime
   websites: [
-    { name: 'Example Website', url: 'https://example.com' },
-    { name: 'Example2 Website', url: 'https://example2.com' }
+    // Example configurations:
+    { 
+      name: 'Production Website',      // Friendly name for notifications
+      url: 'https://example.com'       // Full URL to check (must include https://)
+    },
+    { 
+      name: 'API Server', 
+      url: 'https://api.example.com' 
+    },
+    { 
+      name: 'Dashboard', 
+      url: 'https://dashboard.example.com' 
+    }
+    
+    // Add more websites as needed:
+    // { name: 'Blog', url: 'https://blog.example.com' },
+    // { name: 'Admin Panel', url: 'https://admin.example.com' },
   ]
 };
