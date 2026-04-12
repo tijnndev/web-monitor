@@ -98,8 +98,16 @@ async function performWebsiteChecks() {
   logger.info('Starting scheduled website check');
   
   try {
+    // Get monitored websites from database instead of config
+    const monitoredWebsites = db.getAllWebsites(true); // true = monitored only
+    
+    if (monitoredWebsites.length === 0) {
+      logger.warn('No websites configured for monitoring');
+      return;
+    }
+
     const results = await websiteMonitor.checkWebsites(
-      config.websites,
+      monitoredWebsites,
       handleWebsiteStateChange
     );
 

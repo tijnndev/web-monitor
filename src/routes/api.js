@@ -40,14 +40,16 @@ router.get('/status', verifySecret, asyncHandler(async (req, res) => {
  */
 router.get('/services', verifySecret, asyncHandler(async (req, res) => {
   const statuses = db.getAllStatuses();
-  const config = require('../../config');
+  const websites = db.getAllWebsites(); // Get all websites from database
   
-  // Merge config with database status
-  const services = config.websites.map(website => {
+  // Merge database websites with their status
+  const services = websites.map(website => {
     const status = statuses.find(s => s.website_url === website.url);
     return {
+      id: website.id,
       name: website.name,
       url: website.url,
+      monitored: website.monitored === 1,
       is_online: status ? status.is_online : null,
       last_checked: status ? status.last_checked : null,
       consecutive_failures: status ? status.consecutive_failures : 0
@@ -123,6 +125,83 @@ router.post('/send-notification', verifySecret, asyncHandler(async (req, res) =>
   } else {
     res.status(500).json({ error: 'Failed to send notification' });
   }
+}));
+
+/**
+ * POST /api/websites
+ * Add a new website to monitor
+ */
+router.post('/websites', verifySecret, asyncHandler(async (req, res) => {
+  const { name, url, monitored = true } = req.body;
+
+  if (!name || !url) {
+    return res.status(400).json({ error: 'Name and URL are required' });
+  }
+
+  // Basic URL validation
+  try {
+    new URL(url);
+  } catch (error) {
+    return res.status(400).json({ error: 'Invalid URL format' });
+  }
+
+  const website = db.addWebsite(name, url, monitored);
+  logger.info('Website added via API', { name, url, monitored });
+  
+  res.status(201).json(website);
+}));
+
+/**
+ * PUT /api/websites/:url
+ * Update a website (name or monitoring status)
+ */
+router.put('/websites/:url', verifySecret, asyncHandler(async (req, res) => {
+  const websiteUrl = decodeURIComponent(req.params.url);
+  const { name, monitored } = req.body;
+
+  if (name === undefined && monitored === undefined) {
+    return res.status(400).json({ error: 'At least one field (name or monitored) must be provided' });
+  }
+
+  const updates = {};
+  if (name !== undefined) updates.name = name;
+  if (monitored !== undefined) updates.monitored = monitored;
+
+  const website = db.updateWebsite(websiteUrl, updates);
+  logger.info('Website updated via API', { url: websiteUrl, updates });
+  
+  res.json(website);
+}));
+
+/**
+ * PATCH /api/websites/:url/toggle
+ * Toggle website monitoring on/off
+ */
+router.patch('/websites/:url/toggle', verifySecret, asyncHandler(async (req, res) => {
+  const websiteUrl = decodeURIComponent(req.params.url);
+  const { monitored } = req.body;
+
+  if (typeof monitored !== 'boolean') {
+    return res.status(400).json({ error: 'Monitored must be a boolean value' });
+  }
+
+  const website = db.toggleMonitoring(websiteUrl, monitored);
+  logger.info('Website monitoring toggled via API', { url: websiteUrl, monitored });
+  
+  res.json(website);
+}));
+
+/**
+ * DELETE /api/websites/:url
+ * Delete a website from monitoring
+ */
+router.delete('/websites/:url', verifySecret, asyncHandler(async (req, res) => {
+  const websiteUrl = decodeURIComponent(req.params.url);
+
+  const website = db.deleteWebsite(websiteUrl);
+  logger.info('Website deleted via API', { url: websiteUrl });
+  
+  res.json({ message: 'Website deleted successfully', website });
 }));
 
 module.exports = router;
