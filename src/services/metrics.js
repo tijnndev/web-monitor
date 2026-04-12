@@ -49,11 +49,19 @@ class MetricsService {
   getHealthStatus() {
     const metrics = this.getOverallMetrics();
     const activeIncidents = db.getActiveIncidents();
+    const statuses = db.getAllStatuses();
+    
+    const totalWebsites = statuses.length;
+    const onlineWebsites = statuses.filter(s => s.is_online === 1).length;
+    const offlineWebsites = statuses.filter(s => s.is_online === 0).length;
     
     return {
       status: activeIncidents.length === 0 ? 'healthy' : 'degraded',
       uptime: metrics.uptime_seconds,
       active_incidents: activeIncidents.length,
+      total_websites: totalWebsites,
+      online_websites: onlineWebsites,
+      offline_websites: offlineWebsites,
       last_check: this.lastCheckTime,
       timestamp: new Date().toISOString()
     };
