@@ -670,6 +670,20 @@ class DatabaseService {
     return website;
   }
 
+  // Delete a website by ID
+  deleteWebsiteById(id) {
+    const website = this.db.prepare('SELECT * FROM websites WHERE id = ?').get(id);
+    if (!website) {
+      logger.error(`Delete failed: Website not found with ID: ${id}`);
+      throw new Error('Website not found');
+    }
+
+    this.db.prepare('DELETE FROM websites WHERE id = ?').run(id);
+    logger.info(`Deleted website with ID ${id}: ${website.url}`);
+    
+    return website;
+  }
+
   close() {
     if (this.db) {
       this.db.close();

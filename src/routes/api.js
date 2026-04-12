@@ -283,7 +283,7 @@ router.patch('/websites/id/:id/toggle', verifySecret, asyncHandler(async (req, r
 
 /**
  * DELETE /api/websites/:url
- * Delete a website from monitoring
+ * Delete a website from monitoring (by URL)
  */
 router.delete('/websites/:url', verifySecret, asyncHandler(async (req, res) => {
   const websiteUrl = decodeURIComponent(req.params.url);
@@ -291,6 +291,25 @@ router.delete('/websites/:url', verifySecret, asyncHandler(async (req, res) => {
   try {
     const website = db.deleteWebsite(websiteUrl);
     logger.info('Website deleted via API', { url: websiteUrl });
+    res.json({ message: 'Website deleted successfully', website });
+  } catch (error) {
+    if (error.message === 'Website not found') {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+    throw error;
+  }
+}));
+
+/**
+ * DELETE /api/websites/id/:id
+ * Delete a website from monitoring (by ID)
+ */
+router.delete('/websites/id/:id', verifySecret, asyncHandler(async (req, res) => {
+  const websiteId = parseInt(req.params.id);
+
+  try {
+    const website = db.deleteWebsiteById(websiteId);
+    logger.info('Website deleted via API', { id: websiteId });
     res.json({ message: 'Website deleted successfully', website });
   } catch (error) {
     if (error.message === 'Website not found') {
