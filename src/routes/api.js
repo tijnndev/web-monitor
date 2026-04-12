@@ -91,6 +91,15 @@ router.get('/history/:websiteUrl', verifySecret, asyncHandler(async (req, res) =
   const limit = parseInt(req.query.limit) || 100;
   
   const checks = db.getRecentChecks(websiteUrl, limit);
+  
+  if (!checks || checks.length === 0) {
+    // Check if website exists
+    const website = db.getWebsiteByUrl(websiteUrl);
+    if (!website) {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+  }
+  
   res.json(checks);
 }));
 
@@ -101,6 +110,12 @@ router.get('/history/:websiteUrl', verifySecret, asyncHandler(async (req, res) =
 router.get('/uptime/:websiteUrl', verifySecret, asyncHandler(async (req, res) => {
   const websiteUrl = decodeURIComponent(req.params.websiteUrl);
   const hours = parseInt(req.query.hours) || 24;
+  
+  // Check if website exists first
+  const website = db.getWebsiteByUrl(websiteUrl);
+  if (!website) {
+    return res.status(404).json({ error: 'Website not found' });
+  }
   
   const stats = db.getUptimeStats(websiteUrl, hours);
   res.json(stats);
@@ -167,10 +182,16 @@ router.put('/websites/:url', verifySecret, asyncHandler(async (req, res) => {
   if (name !== undefined) updates.name = name;
   if (monitored !== undefined) updates.monitored = monitored;
 
-  const website = db.updateWebsite(websiteUrl, updates);
-  logger.info('Website updated via API', { url: websiteUrl, updates });
-  
-  res.json(website);
+  try {
+    const website = db.updateWebsite(websiteUrl, updates);
+    logger.info('Website updated via API', { url: websiteUrl, updates });
+    res.json(website);
+  } catch (error) {
+    if (error.message === 'Website not found') {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+    throw error;
+  }
 }));
 
 /**
@@ -185,10 +206,16 @@ router.patch('/websites/:url/toggle', verifySecret, asyncHandler(async (req, res
     return res.status(400).json({ error: 'Monitored must be a boolean value' });
   }
 
-  const website = db.toggleMonitoring(websiteUrl, monitored);
-  logger.info('Website monitoring toggled via API', { url: websiteUrl, monitored });
-  
-  res.json(website);
+  try {
+    const website = db.toggleMonitoring(websiteUrl, monitored);
+    logger.info('Website monitoring toggled via API', { url: websiteUrl, monitored });
+    res.json(website);
+  } catch (error) {
+    if (error.message === 'Website not found') {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+    throw error;
+  }
 }));
 
 /**
@@ -198,10 +225,16 @@ router.patch('/websites/:url/toggle', verifySecret, asyncHandler(async (req, res
 router.delete('/websites/:url', verifySecret, asyncHandler(async (req, res) => {
   const websiteUrl = decodeURIComponent(req.params.url);
 
-  const website = db.deleteWebsite(websiteUrl);
-  logger.info('Website deleted via API', { url: websiteUrl });
-  
-  res.json({ message: 'Website deleted successfully', website });
+  try {
+    const website = db.deleteWebsite(websiteUrl);
+    logger.info('Website deleted via API', { url: websiteUrl });
+    res.json({ message: 'Website deleted successfully', website });
+  } catch (error) {
+    if (error.message === 'Website not found') {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+    throw error;
+  }
 }));
 
 module.exports = router;

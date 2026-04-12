@@ -7,7 +7,7 @@ dotenv.config();
 // Define validation schema
 const envSchema = Joi.object({
   // Server Configuration
-  PORT: Joi.number().default(3000),
+  PORT: Joi.number().default(8007),
   NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
   
   // Broadcast Configuration
