@@ -1,6 +1,7 @@
 const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder } = require('discord.js');
 const logger = require('../utils/logger');
 const db = require('./database');
+const env = require('../config/env');
 
 class DiscordService {
   constructor(config) {
@@ -8,12 +9,18 @@ class DiscordService {
     this.client = null;
     this.rest = null;
     this.isReady = false;
+    this.enabled = env.DISCORD_ENABLED;
   }
 
   /**
    * Initialize Discord bot
    */
   async initialize() {
+    if (!this.enabled) {
+      logger.info('Discord bot disabled via DISCORD_ENABLED environment variable');
+      return false;
+    }
+
     if (!this.config?.discord?.token) {
       logger.warn('Discord configuration missing - Discord notifications disabled');
       return false;

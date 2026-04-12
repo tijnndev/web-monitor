@@ -1,0 +1,21 @@
+services:
+    web-monitor:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        volumes:
+            # Mount specific directories instead of the entire app to preserve node_modules
+            - ./src:/app/src
+            - ./config.js:/app/config.js
+            - ./data:/app/data
+            - ./logs:/app/logs
+            - ./.env:/app/.env
+        # Always keep container running - process will be controlled via docker exec
+        command: ["tail", "-f", "/dev/null"]
+        ports:
+            - "8007:8007"
+        environment:
+            - MAIN_COMMAND=node src/index.js
+        restart: unless-stopped
+        stdin_open: true
+        tty: true

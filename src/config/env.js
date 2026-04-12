@@ -7,7 +7,7 @@ dotenv.config();
 // Define validation schema
 const envSchema = Joi.object({
   // Server Configuration
-  PORT: Joi.number().default(8007),
+  PORT: Joi.number().default(3000),
   NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
   
   // Broadcast Configuration
@@ -24,6 +24,7 @@ const envSchema = Joi.object({
   DB_PATH: Joi.string().default('./data/monitoring.db'),
   
   // Discord Configuration (from config.js, but could be env vars)
+  DISCORD_ENABLED: Joi.boolean().default(false),
   DISCORD_TOKEN: Joi.string().optional(),
   DISCORD_CHANNEL_ID: Joi.string().optional(),
   DISCORD_CLIENT_ID: Joi.string().optional(),
