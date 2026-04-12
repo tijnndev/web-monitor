@@ -419,6 +419,21 @@ class DatabaseService {
     `).all(website.id, limit);
   }
 
+  // Get recent checks for a website by ID
+  getRecentChecksById(websiteId, limit = 100) {
+    return this.db.prepare(`
+      SELECT 
+        mc.*,
+        w.name as website_name,
+        w.url as website_url
+      FROM monitoring_checks mc
+      INNER JOIN websites w ON mc.website_id = w.id
+      WHERE mc.website_id = ? 
+      ORDER BY mc.checked_at DESC 
+      LIMIT ?
+    `).all(websiteId, limit);
+  }
+
   // Get active incidents
   getActiveIncidents() {
     return this.db.prepare(`
@@ -463,6 +478,42 @@ class DatabaseService {
     
     return {
       website_url: websiteUrl,
+      ...stats,
+      uptime_percentage: parseFloat(uptimePercentage),
+      period_hours: hours
+    };
+  }
+
+  // Get uptime statistics by ID
+  getUptimeStatsById(websiteId, hours = 24) {
+    const website = this.db.prepare('SELECT * FROM websites WHERE id = ?').get(websiteId);
+    if (!website) {
+      return {
+        total_checks: 0,
+        successful_checks: 0,
+        uptime_percentage: 0,
+        avg_response_time: null,
+        period_hours: hours
+      };
+    }
+
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    
+    const stats = this.db.prepare(`
+      SELECT 
+        COUNT(*) as total_checks,
+        SUM(CASE WHEN is_online = 1 THEN 1 ELSE 0 END) as successful_checks,
+        AVG(CASE WHEN response_time IS NOT NULL THEN response_time ELSE NULL END) as avg_response_time
+      FROM monitoring_checks
+      WHERE website_id = ? AND checked_at >= ?
+    `).get(websiteId, since);
+    
+    const uptimePercentage = stats.total_checks > 0 
+      ? ((stats.successful_checks / stats.total_checks) * 100).toFixed(2)
+      : 0;
+    
+    return {
+      website_url: website.url,
       ...stats,
       uptime_percentage: parseFloat(uptimePercentage),
       period_hours: hours

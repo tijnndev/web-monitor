@@ -84,7 +84,7 @@ router.get('/incidents', verifySecret, asyncHandler(async (req, res) => {
 
 /**
  * GET /api/history/:websiteUrl
- * Get check history for a specific website
+ * Get check history for a specific website (by URL)
  */
 router.get('/history/:websiteUrl', verifySecret, asyncHandler(async (req, res) => {
   const websiteUrl = decodeURIComponent(req.params.websiteUrl);
@@ -104,8 +104,29 @@ router.get('/history/:websiteUrl', verifySecret, asyncHandler(async (req, res) =
 }));
 
 /**
+ * GET /api/history/id/:id
+ * Get check history for a specific website (by ID)
+ */
+router.get('/history/id/:id', verifySecret, asyncHandler(async (req, res) => {
+  const websiteId = parseInt(req.params.id);
+  const limit = parseInt(req.query.limit) || 100;
+  
+  const checks = db.getRecentChecksById(websiteId, limit);
+  
+  if (!checks || checks.length === 0) {
+    // Check if website exists
+    const website = db.db.prepare('SELECT * FROM websites WHERE id = ?').get(websiteId);
+    if (!website) {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+  }
+  
+  res.json(checks);
+}));
+
+/**
  * GET /api/uptime/:websiteUrl
- * Get uptime statistics for a specific website
+ * Get uptime statistics for a specific website (by URL)
  */
 router.get('/uptime/:websiteUrl', verifySecret, asyncHandler(async (req, res) => {
   const websiteUrl = decodeURIComponent(req.params.websiteUrl);
@@ -118,6 +139,24 @@ router.get('/uptime/:websiteUrl', verifySecret, asyncHandler(async (req, res) =>
   }
   
   const stats = db.getUptimeStats(websiteUrl, hours);
+  res.json(stats);
+}));
+
+/**
+ * GET /api/uptime/id/:id
+ * Get uptime statistics for a specific website (by ID)
+ */
+router.get('/uptime/id/:id', verifySecret, asyncHandler(async (req, res) => {
+  const websiteId = parseInt(req.params.id);
+  const hours = parseInt(req.query.hours) || 24;
+  
+  // Check if website exists first
+  const website = db.db.prepare('SELECT * FROM websites WHERE id = ?').get(websiteId);
+  if (!website) {
+    return res.status(404).json({ error: 'Website not found' });
+  }
+  
+  const stats = db.getUptimeStatsById(websiteId, hours);
   res.json(stats);
 }));
 
