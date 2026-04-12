@@ -510,16 +510,16 @@ class DatabaseService {
       `);
       
       const result = stmt.run(name, url, monitoredInt, now, now);
-      logger.info(`Added website: ${name} (${url})`);
+      logger.info(`Added website: ${name} (${url}) with ID: ${result.lastInsertRowid}`);
       
-      return {
-        id: result.lastInsertRowid,
-        name,
-        url,
-        monitored,
-        created_at: now,
-        updated_at: now
-      };
+      // Return the actual website object from database to ensure consistency
+      const website = this.getWebsiteByUrl(url);
+      if (!website) {
+        logger.error(`Failed to retrieve newly added website: ${url}`);
+        throw new Error('Failed to add website');
+      }
+      
+      return website;
     } catch (error) {
       if (error.message.includes('UNIQUE constraint failed')) {
         throw new Error('A website with this URL already exists');
@@ -557,6 +557,15 @@ class DatabaseService {
     const monitoredInt = monitored ? 1 : 0;
     const now = new Date().toISOString();
     
+    logger.info(`Attempting to toggle monitoring for URL: ${url} to ${monitored}`);
+    
+    const website = this.getWebsiteByUrl(url);
+    if (!website) {
+      logger.error(`Toggle failed: Website not found with URL: ${url}`);
+      logger.info(`Available websites: ${JSON.stringify(this.getAllWebsites().map(w => w.url))}`);
+      throw new Error('Website not found');
+    }
+    
     const result = this.db.prepare(`
       UPDATE websites 
       SET monitored = ?, updated_at = ?
@@ -564,12 +573,37 @@ class DatabaseService {
     `).run(monitoredInt, now, url);
     
     if (result.changes === 0) {
+      logger.error(`Toggle failed: No rows updated for URL: ${url}`);
       throw new Error('Website not found');
     }
     
-    logger.info(`Toggled monitoring for ${url}: ${monitored}`);
+    logger.info(`Successfully toggled monitoring for ${url}: ${monitored}`);
     
     return this.getWebsiteByUrl(url);
+  }
+
+  // Toggle website monitoring status by ID
+  toggleMonitoringById(id, monitored) {
+    const monitoredInt = monitored ? 1 : 0;
+    const now = new Date().toISOString();
+    
+    logger.info(`Attempting to toggle monitoring for ID: ${id} to ${monitored}`);
+    
+    const result = this.db.prepare(`
+      UPDATE websites 
+      SET monitored = ?, updated_at = ?
+      WHERE id = ?
+    `).run(monitoredInt, now, id);
+    
+    if (result.changes === 0) {
+      logger.error(`Toggle failed: Website not found with ID: ${id}`);
+      throw new Error('Website not found');
+    }
+    
+    logger.info(`Successfully toggled monitoring for ID ${id}: ${monitored}`);
+    
+    const website = this.db.prepare('SELECT * FROM websites WHERE id = ?').get(id);
+    return website;
   }
 
   // Delete a website

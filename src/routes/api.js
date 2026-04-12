@@ -196,7 +196,7 @@ router.put('/websites/:url', verifySecret, asyncHandler(async (req, res) => {
 
 /**
  * PATCH /api/websites/:url/toggle
- * Toggle website monitoring on/off
+ * Toggle website monitoring on/off (by URL)
  */
 router.patch('/websites/:url/toggle', verifySecret, asyncHandler(async (req, res) => {
   const websiteUrl = decodeURIComponent(req.params.url);
@@ -209,6 +209,30 @@ router.patch('/websites/:url/toggle', verifySecret, asyncHandler(async (req, res
   try {
     const website = db.toggleMonitoring(websiteUrl, monitored);
     logger.info('Website monitoring toggled via API', { url: websiteUrl, monitored });
+    res.json(website);
+  } catch (error) {
+    if (error.message === 'Website not found') {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+    throw error;
+  }
+}));
+
+/**
+ * PATCH /api/websites/id/:id/toggle
+ * Toggle website monitoring on/off (by ID)
+ */
+router.patch('/websites/id/:id/toggle', verifySecret, asyncHandler(async (req, res) => {
+  const websiteId = parseInt(req.params.id);
+  const { monitored } = req.body;
+
+  if (typeof monitored !== 'boolean') {
+    return res.status(400).json({ error: 'Monitored must be a boolean value' });
+  }
+
+  try {
+    const website = db.toggleMonitoringById(websiteId, monitored);
+    logger.info('Website monitoring toggled via API', { id: websiteId, monitored });
     res.json(website);
   } catch (error) {
     if (error.message === 'Website not found') {
